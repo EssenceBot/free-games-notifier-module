@@ -1,6 +1,6 @@
 import { createSlashCommand, getDatabaseClient } from "@essence-discord-bot/api/botExtension";
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
+import { MessageFlags, PermissionFlagsBits } from "discord.js";
 import { eq } from "drizzle-orm";
 import * as schema from "../schema";
 import { PLATFORM_MAP, TYPE_MAP } from "../types";
@@ -13,13 +13,33 @@ export async function registerGameNotifyListCommand() {
     (slashCommand: SlashCommandBuilder) => {
       slashCommand
         .setName("game-notify-list")
-        .setDescription("List all configured game notifiers for this server");
+        .setDescription("List all configured game notifiers for this server")
+        .setDefaultMemberPermissions(
+          PermissionFlagsBits.Administrator | 
+          PermissionFlagsBits.ManageGuild | 
+          PermissionFlagsBits.ModerateMembers
+        );
     },
     async (interaction) => {
       try {
         if (!interaction.guild) {
           await interaction.reply({
             content: "This command can only be used in a server.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        // Check permissions
+        const member = interaction.guild.members.cache.get(interaction.user.id);
+        const isOwner = interaction.guild.ownerId === interaction.user.id;
+        const hasAdminPerms = member?.permissions.has(PermissionFlagsBits.Administrator);
+        const hasModPerms = member?.permissions.has(PermissionFlagsBits.ManageGuild) || 
+                           member?.permissions.has(PermissionFlagsBits.ModerateMembers);
+
+        if (!isOwner && !hasAdminPerms && !hasModPerms) {
+          await interaction.reply({
+            content: "❌ You don't have permission to use this command. Only server owner, administrators, and moderators can view game notifications.",
             flags: MessageFlags.Ephemeral,
           });
           return;
