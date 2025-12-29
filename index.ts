@@ -76,7 +76,7 @@ async function checkForNewGames() {
     const worker = new Worker(workerURL);
     worker.postMessage({ 
       notifiers: Array.from(notifierGroups.values()).flat(),
-      notifiedGameIds: [] // Will check per group below
+      notifiedGameIds: allNotifiedGames.map((ng: typeof schema.notifiedGames.$inferSelect) => ng.gameId)
     } as GameCheckerInput);
 
     worker.addEventListener("message", async (event: MessageEvent<GameCheckerResult>) => {
@@ -157,7 +157,7 @@ async function checkForNewGames() {
 
             // Mark game as notified for this guild/platform/type combination
             try {
-              await db.insert(schema.notifiedGames).values({
+              const insertResult = await db.insert(schema.notifiedGames).values({
                 guildId,
                 platform,
                 type,
@@ -165,7 +165,12 @@ async function checkForNewGames() {
                 title: game.title,
                 platforms: game.platforms,
                 endDate: game.end_date || null,
-              }).onConflictDoNothing();
+              }).onConflictDoNothing().returning();
+              
+              // Add to in-memory list if successfully inserted
+              if (insertResult.length > 0) {
+                allNotifiedGames.push(insertResult[0]);
+              }
             } catch (dbError) {
               log(moduleName, `Error inserting notified game record: ${dbError}`, "error");
             }
