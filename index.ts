@@ -127,31 +127,32 @@ async function checkForNewGames() {
           for (const [key, groupNotifiers] of notificationGroups) {
             const [guildId, platform, type] = key.split(':');
             
-            for (const notifier of groupNotifiers) {
-              try {
-                const channel = await client.channels.fetch(notifier.channelId);
-                if (channel && channel.type === ChannelType.GuildText) {
-                  const textChannel = channel as TextChannel;
-                  const embed = createGameEmbed(game);
-                  
-                  // Create CLAIM button
-                  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-                    new ButtonBuilder()
-                      .setLabel("CLAIM")
-                      .setStyle(ButtonStyle.Link)
-                      .setURL(game.open_giveaway)
-                  );
-                  
-                  await textChannel.send({
-                    content: `<@&${notifier.roleId}> New free ${TYPE_MAP[notifier.type]} available!`,
-                    embeds: [embed],
-                    components: [row],
-                    allowedMentions: { roles: [notifier.roleId] },
-                  });
-                }
-              } catch (error) {
-                log(moduleName, `Error sending notification to channel ${notifier.channelId}: ${error}`, "error");
+            // Use the first notifier in the group (they all have the same guild/platform/type)
+            const notifier = groupNotifiers[0];
+            
+            try {
+              const channel = await client.channels.fetch(notifier.channelId);
+              if (channel && channel.type === ChannelType.GuildText) {
+                const textChannel = channel as TextChannel;
+                const embed = createGameEmbed(game);
+                
+                // Create CLAIM button
+                const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+                  new ButtonBuilder()
+                    .setLabel("CLAIM")
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(game.open_giveaway)
+                );
+                
+                await textChannel.send({
+                  content: `<@&${notifier.roleId}> New free ${TYPE_MAP[notifier.type]} available!`,
+                  embeds: [embed],
+                  components: [row],
+                  allowedMentions: { roles: [notifier.roleId] },
+                });
               }
+            } catch (error) {
+              log(moduleName, `Error sending notification to channel ${notifier.channelId}: ${error}`, "error");
             }
 
             // Mark game as notified for this guild/platform/type combination
