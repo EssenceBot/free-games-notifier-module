@@ -73,10 +73,11 @@ async function checkForNewGames() {
     const allNotifiedGames = await db.select().from(schema.notifiedGames);
 
     // Create and run worker
+    // Don't send notifiedGameIds - we'll filter per guild/platform/type in the event listener
     const worker = new Worker(workerURL);
     worker.postMessage({ 
       notifiers: Array.from(notifierGroups.values()).flat(),
-      notifiedGameIds: allNotifiedGames.map((ng: typeof schema.notifiedGames.$inferSelect) => ng.gameId)
+      notifiedGameIds: []
     } as GameCheckerInput);
 
     worker.addEventListener("message", async (event: MessageEvent<GameCheckerResult>) => {
