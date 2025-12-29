@@ -156,15 +156,19 @@ async function checkForNewGames() {
             }
 
             // Mark game as notified for this guild/platform/type combination
-            await db.insert(schema.notifiedGames).values({
-              guildId,
-              platform,
-              type,
-              gameId: String(game.id),
-              title: game.title,
-              platforms: game.platforms,
-              endDate: game.end_date,
-            });
+            try {
+              await db.insert(schema.notifiedGames).values({
+                guildId,
+                platform,
+                type,
+                gameId: String(game.id),
+                title: game.title,
+                platforms: game.platforms,
+                endDate: game.end_date || null,
+              }).onConflictDoNothing();
+            } catch (dbError) {
+              log(moduleName, `Error inserting notified game record: ${dbError}`, "error");
+            }
           }
         }
       }
