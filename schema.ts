@@ -4,6 +4,7 @@ import {
   varchar,
   timestamp,
   integer,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // Table to store notifier configurations for each guild
@@ -30,4 +31,11 @@ export const notifiedGames = pgTable("notified_games", {
   platforms: varchar("platforms", { length: 500 }).notNull(), // Comma-separated list
   endDate: varchar("end_date", { length: 255 }), // When the giveaway ends
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("idx_notified_games_unique").on(
+    table.guildId,
+    table.platform,
+    table.type,
+    table.gameId
+  ),
+]);

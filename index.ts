@@ -10,7 +10,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from "discord.js";
-import { notInArray } from "drizzle-orm";
+import { notInArray, and, eq } from "drizzle-orm";
 import * as schema from "./schema";
 import type { ModuleDatabaseExports } from "@essence-discord-bot/types/types";
 import log from "@essence-discord-bot/lib/log";
@@ -161,19 +161,37 @@ async function checkForNewGames() {
 
             // Mark game as notified for this guild/platform/type combination
             try {
-              const insertResult = await db.insert(schema.notifiedGames).values({
-                guildId,
-                platform,
-                type,
-                gameId: String(game.id),
-                title: game.title,
-                platforms: game.platforms,
-                endDate: game.end_date || null,
-              }).onConflictDoNothing().returning();
-              
-              // Add to in-memory list if successfully inserted
-              if (insertResult.length > 0) {
-                allNotifiedGames.push(insertResult[0]);
+              // First check if already exists (belt and suspenders approach)
+              const existing = await db.select()
+                .from(schema.notifiedGames)
+                .where(
+                  and(
+                    eq(schema.notifiedGames.guildId, guildId),
+                    eq(schema.notifiedGames.platform, platform),
+                    eq(schema.notifiedGames.type, type),
+                    eq(schema.notifiedGames.gameId, String(game.id))
+                  )
+                )
+                .limit(1);
+
+              if (existing.length === 0) {
+                const insertResult = await db.insert(schema.notifiedGames).values({
+                  guildId,
+                  platform,
+                  type,
+                  gameId: String(game.id),
+                  title: game.title,
+                  platforms: game.platforms,
+                  endDate: game.end_date || null,
+                }).returning();
+                
+                // Add to in-memory list if successfully inserted
+                if (insertResult.length > 0) {
+                  allNotifiedGames.push(insertResult[0]);
+                  log(moduleName, `Recorded notification for game ${game.id} in guild ${guildId}`);
+                }
+              } else {
+                log(moduleName, `Game ${game.id} already recorded for guild ${guildId}, skipping insert`);
               }
             } catch (dbError) {
               log(moduleName, `Error inserting notified game record: ${dbError}`, "error");
