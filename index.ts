@@ -151,9 +151,12 @@ async function checkForNewGames() {
                   components: [row],
                   allowedMentions: { roles: [notifier.roleId] },
                 });
+                
+                log(moduleName, `Sent notification for "${game.title}" to channel ${notifier.channelId}`);
               }
             } catch (error) {
               log(moduleName, `Error sending notification to channel ${notifier.channelId}: ${error}`, "error");
+              log(moduleName, `Game data: ${JSON.stringify(game)}`, "error");
             }
 
             // Mark game as notified for this guild/platform/type combination

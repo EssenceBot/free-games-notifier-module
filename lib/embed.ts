@@ -4,19 +4,46 @@ import type { GameData } from "../types";
 // Create embed for game notification
 export function createGameEmbed(game: GameData): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setTitle(game.title)
-    .setDescription(game.description || "No description available")
-    .setImage(game.image)
-    .addFields(
-      { name: "Platform", value: game.platforms, inline: true },
-      { name: "Type", value: game.type, inline: true }
-    )
-    .setURL(game.open_giveaway)
+    .setTitle(game.title || "Free Game")
     .setColor(0x00ff00)
     .setTimestamp();
 
-  if (game.end_date && game.end_date !== "N/A") {
-    embed.addFields({ name: "Ends", value: game.end_date, inline: false });
+  // Only set description if it exists and is not empty
+  if (game.description && game.description.trim() !== "") {
+    // Discord embeds have a 4096 character limit for description
+    const description = game.description.length > 4000 
+      ? game.description.substring(0, 4000) + "..." 
+      : game.description;
+    embed.setDescription(description);
+  }
+
+  // Only set image if it's a valid URL
+  if (game.image && game.image.startsWith("http")) {
+    embed.setImage(game.image);
+  }
+
+  // Only set URL if it's valid
+  if (game.open_giveaway && game.open_giveaway.startsWith("http")) {
+    embed.setURL(game.open_giveaway);
+  }
+
+  // Add fields only if they have valid values
+  const fields: { name: string; value: string; inline: boolean }[] = [];
+  
+  if (game.platforms && game.platforms.trim() !== "") {
+    fields.push({ name: "Platform", value: game.platforms, inline: true });
+  }
+  
+  if (game.type && game.type.trim() !== "") {
+    fields.push({ name: "Type", value: game.type, inline: true });
+  }
+
+  if (game.end_date && game.end_date !== "N/A" && game.end_date.trim() !== "") {
+    fields.push({ name: "Ends", value: game.end_date, inline: false });
+  }
+
+  if (fields.length > 0) {
+    embed.addFields(fields);
   }
 
   return embed;
