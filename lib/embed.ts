@@ -5,14 +5,19 @@ import type { GameData } from "../types";
 function toDiscordTimestamp(dateStr: string): string | null {
   try {
     // Parse the date string (format: "2026-01-15 23:59:00")
-    // The API returns times in UTC
+    // The GamerPower API returns times without timezone info
+    // Based on testing, the times appear to be in UTC but offset by 8 hours
+    // We need to subtract 8 hours to get the correct time
     const date = new Date(dateStr.replace(" ", "T") + "Z");
     
     if (isNaN(date.getTime())) {
       return null;
     }
     
-    const unixTimestamp = Math.floor(date.getTime() / 1000);
+    // Adjust for the 8 hour offset in the API data
+    const adjustedDate = new Date(date.getTime() - (8 * 60 * 60 * 1000));
+    
+    const unixTimestamp = Math.floor(adjustedDate.getTime() / 1000);
     // Use 'f' format for short date/time, and 'R' for relative time
     return `<t:${unixTimestamp}:f> (<t:${unixTimestamp}:R>)`;
   } catch {
