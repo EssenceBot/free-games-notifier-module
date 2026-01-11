@@ -131,6 +131,56 @@ async function checkForNewGames() {
             // Use the first notifier in the group (they all have the same guild/platform/type)
             const notifier = groupNotifiers[0];
             
+            // FIRST: Try to insert into database to mark as notified
+            // Only send notification if we successfully record it
+            let recordSaved = false;
+            try {
+              // Check if already exists in database
+              const existing = await db.select()
+                .from(schema.notifiedGames)
+                .where(
+                  and(
+                    eq(schema.notifiedGames.guildId, guildId),
+                    eq(schema.notifiedGames.platform, platform),
+                    eq(schema.notifiedGames.type, type),
+                    eq(schema.notifiedGames.gameId, String(game.id))
+                  )
+                )
+                .limit(1);
+
+              if (existing.length > 0) {
+                log(moduleName, `Game ${game.id} already recorded for guild ${guildId}, skipping`);
+                continue; // Skip this notification entirely
+              }
+
+              // Try to insert the record
+              const insertResult = await db.insert(schema.notifiedGames).values({
+                guildId,
+                platform,
+                type,
+                gameId: String(game.id),
+                title: game.title,
+                platforms: game.platforms,
+                endDate: game.end_date || null,
+              }).returning();
+              
+              if (insertResult.length > 0) {
+                allNotifiedGames.push(insertResult[0]);
+                recordSaved = true;
+                log(moduleName, `Recorded game ${game.id} for guild ${guildId}`);
+              }
+            } catch (dbError) {
+              log(moduleName, `Error saving notified game record: ${dbError}`, "error");
+              // Don't send notification if we can't save the record
+              continue;
+            }
+
+            // Only send notification if we successfully saved the record
+            if (!recordSaved) {
+              log(moduleName, `Failed to save record for game ${game.id}, skipping notification`);
+              continue;
+            }
+
             try {
               const channel = await client.channels.fetch(notifier.channelId);
               if (channel && channel.type === ChannelType.GuildText) {
@@ -156,45 +206,6 @@ async function checkForNewGames() {
               }
             } catch (error) {
               log(moduleName, `Error sending notification to channel ${notifier.channelId}: ${error}`, "error");
-              log(moduleName, `Game data: ${JSON.stringify(game)}`, "error");
-            }
-
-            // Mark game as notified for this guild/platform/type combination
-            try {
-              // First check if already exists (belt and suspenders approach)
-              const existing = await db.select()
-                .from(schema.notifiedGames)
-                .where(
-                  and(
-                    eq(schema.notifiedGames.guildId, guildId),
-                    eq(schema.notifiedGames.platform, platform),
-                    eq(schema.notifiedGames.type, type),
-                    eq(schema.notifiedGames.gameId, String(game.id))
-                  )
-                )
-                .limit(1);
-
-              if (existing.length === 0) {
-                const insertResult = await db.insert(schema.notifiedGames).values({
-                  guildId,
-                  platform,
-                  type,
-                  gameId: String(game.id),
-                  title: game.title,
-                  platforms: game.platforms,
-                  endDate: game.end_date || null,
-                }).returning();
-                
-                // Add to in-memory list if successfully inserted
-                if (insertResult.length > 0) {
-                  allNotifiedGames.push(insertResult[0]);
-                  log(moduleName, `Recorded notification for game ${game.id} in guild ${guildId}`);
-                }
-              } else {
-                log(moduleName, `Game ${game.id} already recorded for guild ${guildId}, skipping insert`);
-              }
-            } catch (dbError) {
-              log(moduleName, `Error inserting notified game record: ${dbError}`, "error");
             }
           }
         }
